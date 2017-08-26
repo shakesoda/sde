@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <fcntl.h>
+#include <unistd.h> // close
 #include <stdlib.h> // calloc
 #include <string.h> // memset
 #include <sys/mman.h>
@@ -9,11 +10,14 @@
 #include <libdrm/drm_mode.h>
 #include "dri.h"
 
+static int g_dri_fd = -1;
+
 struct fb_info*
-setup_dri()
+swm_dri_init()
 {
 	// get the dri device
-	int dri_fd  = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+	int dri_fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+	g_dri_fd = dri_fd;
 
 	// kms
 	uint64_t res_fb_buf[10]={0},
@@ -97,15 +101,15 @@ setup_dri()
 		create_dumb.handle = 0;
 		ioctl(dri_fd, DRM_IOCTL_MODE_CREATE_DUMB, &create_dumb);
 
-		cmd_dumb.width=create_dumb.width;
-		cmd_dumb.height=create_dumb.height;
-		cmd_dumb.bpp=create_dumb.bpp;
-		cmd_dumb.pitch=create_dumb.pitch;
-		cmd_dumb.depth=24;
-		cmd_dumb.handle=create_dumb.handle;
+		cmd_dumb.width = create_dumb.width;
+		cmd_dumb.height = create_dumb.height;
+		cmd_dumb.bpp = create_dumb.bpp;
+		cmd_dumb.pitch = create_dumb.pitch;
+		cmd_dumb.depth = 24;
+		cmd_dumb.handle = create_dumb.handle;
 		ioctl(dri_fd,DRM_IOCTL_MODE_ADDFB,&cmd_dumb);
 
-		map_dumb.handle=create_dumb.handle;
+		map_dumb.handle = create_dumb.handle;
 		ioctl(dri_fd,DRM_IOCTL_MODE_MAP_DUMB,&map_dumb);
 
 		infos[i].base = mmap(0, create_dumb.size, PROT_READ | PROT_WRITE, MAP_SHARED, dri_fd, map_dumb.offset);
@@ -138,4 +142,10 @@ setup_dri()
 	ioctl(dri_fd, DRM_IOCTL_DROP_MASTER, 0);
 
 	return infos;
+}
+
+void
+swm_dri_shutdown()
+{
+	close(g_dri_fd);
 }

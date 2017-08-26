@@ -9,16 +9,65 @@
 
 #define NAME "/tmp/swm_lock"
 
-static DISPMANX_DISPLAY_HANDLE_T display;
-static DISPMANX_UPDATE_HANDLE_T update;
+static int g_sock = -1;
+static struct fb_info *g_infos = NULL;
+
+static void
+init_host()
+{
+	// force unlink the lock, in case previous run crashed or something...
+	// TODO: exit if lock file exists, that's the point.
+	unlink(NAME);
+
+	g_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (g_sock < 0)
+	{
+		puts("oh no");
+		return;
+	}
+
+	struct sockaddr_un server;
+	server.sun_family = AF_UNIX;
+	strcpy(server.sun_path, NAME);
+	if (bind(g_sock, (struct sockaddr*)&server, sizeof(struct sockaddr_un))) {
+		puts("ded");
+		return;
+	}
+
+	listen(g_sock, 5);
+
+	puts("it worked");
+}
+
+static void
+shutdown_host()
+{
+	close(g_sock);
+	unlink(NAME);
+}
+
+static void
+init_dri()
+{
+	g_infos = swm_dri_init();
+	if (g_infos[0].base == NULL)
+	{
+		free(g_infos);
+		g_infos = NULL;
+		puts("can't into kms");
+		return;
+	}
+}
 
 static void
 swm_shutdown(struct stk_event_t* event)
 {
 	puts("thing is kill");
+	shutdown_host();
 
-	int result = vc_dispmanx_display_close(display);
-	assert(result == 0);
+	// dri cleanup
+	swm_dri_shutdown();
+	free(g_infos);
 }
 
 static void
@@ -30,71 +79,47 @@ swm_input(struct stk_event_t *event)
 	}
 }
 
-void
-init_dispmanx()
+
+static void
+draw()
 {
-	int result;
-	DISPMANX_MODEINFO_T info;
-	result = vc_dispmanx_display_get_info(display, &info);
-	assert(result == 0);
-
-	update = vc_dispmanx_update_start(0);
-	assert(update != 0);
-
-	result = vc_dispmanx_update_submit_sync(update);
-	assert(result == 0);
-}
-
-void
-init_kms()
-{
-	puts("use kms");
+	int x,y;
+	struct fb_info *current = g_infos;
+	while (current->base != NULL)
+	{
+		int col=(rand()%0x00ffffff)&0x00ff00ff;
+		int w = current->w;
+		int h = current->h;
+		for (y=0;y<h;y++)
+		{
+			for (x=0;x<w;x++)
+			{
+				int location=y*(w) + x;
+				*(((uint32_t*)current->base)+location) = col;
+			}
+		}
+		current++;
+	}
 }
 
 int
 main(int argc, char **argv)
 {
 	stk_init();
-	bcm_host_init();
 
-	unlink(NAME);
+	init_host();
 
-	int sock = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock < 0)
+	// sanity check: did we fail to get a usable socket?
+	if (g_sock < 0)
 	{
-		puts("oh no");
-		goto skip;
+		puts("unable to host service, already running?");
+		return -1;
 	}
 
-	struct sockaddr_un server;
-	server.sun_family = AF_UNIX;
-	strcpy(server.sun_path, NAME);
-	if (bind(sock, (struct sockaddr*)&server, sizeof(struct sockaddr_un))) {
-		puts("ded");
-		goto skip;
-	}
-
-	listen(sock, 5);
-
-	puts("it worked");
-
-	close(sock);
-	unlink(NAME);
-
-skip:
-
-	display = vc_dispmanx_display_open(0);
-
-	// If this fails, we're most likely using a KMS driver, not BCM.
-	bool use_dispmanx = true;
-	if (display != 0)
+	init_dri();
+	if (g_infos == NULL)
 	{
-		init_dispmanx();
-	}
-	else
-	{
-		init_kms();
-		use_dispmanx = false;
+		return -1;
 	}
 
 	struct stk_event_t event;
@@ -115,53 +140,9 @@ skip:
 			}
 		}
 
-		// update frame
-		if (use_dispmanx)
-		{
-			update = vc_dispmanx_update_start(0);
-			assert(update != 0);
-
-			int result = vc_dispmanx_update_submit_sync(update);
-			assert(result == 0);
-		}
+		draw();
+		usleep(1000);
 	}
 
 	return stk_run();
-}
-
-int
-xmain(int argc, char *argv[])
-{
-	struct fb_info *infos = setup_dri();
-	if (infos[0].base == NULL)
-	{
-		puts("oh nooooo");
-		return -1;
-	}
-
-	int x,y;
-	for (int i=0;i<100;i++)
-	{
-		struct fb_info *current = infos;
-		while (current->base != NULL)
-		{
-			int col=(rand()%0x00ffffff)&0x00ff00ff;
-			int w = current->w;
-			int h = current->h;
-			for (y=0;y<h;y++)
-			{
-				for (x=0;x<w;x++)
-				{
-					int location=y*(w) + x;
-					*(((uint32_t*)current->base)+location) = col;
-				}
-			}
-			current++;
-		}
-		usleep(100000);
-	}
-
-	free(infos);
-
-	return 0;
 }
