@@ -7,12 +7,20 @@ enum stk_event_type_t
 	STK_SHUTDOWN,
 	STK_INVALID
 };
-typedef enum stk_event_type_t stk_event_type_t;
+
+enum stk_window_flags_t
+{
+	STK_WF_NONE,
+	STK_WF_NORMAL = 1 << 0,
+	// STK_WF_FULLSCREEN = 1 << 1,
+	// STK_WF_ALWAYS_ON_TOP = 1 << 2,
+	STK_WF_INVALID = 1 << 3
+};
 
 // basic generic SDL-style event
 struct stk_event_t
 {
-	stk_event_type_t type;
+	enum stk_event_type_t type;
 	union
 	{
 		struct
@@ -21,10 +29,13 @@ struct stk_event_t
 		} key;
 	};
 };
-typedef struct stk_event_t stk_event_t;
 
-//typedef void (*stk_callback_t)(stk_event_t*);
-int stk_running(void);
+struct stk_window_t
+{
+	unsigned width;
+	unsigned height;
+	unsigned flags;
+};
 
 // prepare stk for use (allocate callback memory, etc)
 void stk_init(void);
@@ -35,5 +46,12 @@ void stk_terminate(int);
 // run main loop, or finish execution and return if stk_terminate() has been called.
 int stk_run(void);
 
+// returns 1 until terminate() has been called for any reason
+int stk_running(void);
+
 // check for program events
-int stk_event_pump(stk_event_t *event);
+int stk_event_pump(struct stk_event_t *event);
+
+struct stk_window_t *stk_window_create(unsigned flags);
+
+void stk_window_destroy(struct stk_window_t *wnd);

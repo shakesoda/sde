@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h> // usleep
 #include <string.h> // mem*
+#include <stdlib.h>
 #include "key.h"
 
 static int retcode = 0;
@@ -38,12 +39,12 @@ stk_running()
 }
 
 int
-stk_event_pump(stk_event_t *event)
+stk_event_pump(struct stk_event_t *event)
 {
-	memset(event, 0, sizeof(stk_event_t));
+	memset(event, 0, sizeof(struct stk_event_t));
 
 	int k;
-	if (keyPressed(&k))
+	if (key_pressed(&k))
 	{
 		event->type = STK_KEYDOWN;
 		event->key.code = k;
@@ -75,7 +76,7 @@ stk_init()
 int
 stk_run()
 {
-	stk_event_t event;
+	struct stk_event_t event;
 
 	while (!donezo) {
 		// poll events
@@ -90,7 +91,25 @@ stk_run()
 		usleep(1000);
 	}
 
-	keyboardReset();
+	keyboard_reset();
 
 	return retcode;
+}
+
+struct stk_window_t*
+stk_window_create(unsigned flags)
+{
+	struct stk_window_t *wnd = calloc(1, sizeof(struct stk_window_t));
+
+	// TODO: notify WM process
+
+	return wnd;
+}
+
+void
+stk_window_destroy(struct stk_window_t *wnd)
+{
+	// TODO: notify WM process
+
+	free(wnd);
 }
