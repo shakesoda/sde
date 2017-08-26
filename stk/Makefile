@@ -1,4 +1,4 @@
-OBJS=stk.o key.o
+OBJS=stk.o
 LIB=../libstk.a
 
 CFLAGS+=-c -Wall -g -O3 -I../include

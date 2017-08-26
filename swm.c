@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include "dri.h"
+#include "key.h"
 
 #define NAME "/tmp/swm_lock"
 
@@ -62,6 +63,8 @@ init_dri()
 static void
 swm_shutdown(struct stk_event_t* event)
 {
+	keyboard_reset();
+
 	puts("thing is kill");
 	shutdown_host();
 
@@ -103,9 +106,33 @@ draw()
 }
 
 int
+swm_event_pump(struct stk_event_t *event)
+{
+	memset(event, 0, sizeof(struct stk_event_t));
+
+	int k;
+	if (key_pressed(&k))
+	{
+		event->type = STK_KEYDOWN;
+		event->key.code = k;
+
+		return 1;
+	}
+}
+
+void
+swm_push(struct stk_event_t *event)
+{
+//	for each client
+//	{
+//		send(event)
+//	}
+}
+
+int
 main(int argc, char **argv)
 {
-	stk_init();
+	swm_init();
 
 	init_host();
 
@@ -123,9 +150,9 @@ main(int argc, char **argv)
 	}
 
 	struct stk_event_t event;
-	while (stk_running())
+	while (swm_running())
 	{
-		while (stk_event_pump(&event))
+		while (swm_event_pump(&event))
 		{
 			switch (event.type)
 			{
@@ -138,9 +165,14 @@ main(int argc, char **argv)
 			default:
 				break;
 			}
+			if (event.type != 0)
+			{
+				swm_push(&event);
+			}
 		}
 
 		draw();
+		// TODO: figure out how to wait for vblank
 		usleep(1000);
 	}
 

@@ -5,12 +5,17 @@
 #include <stdio.h>
 #include <unistd.h> // usleep
 #include <string.h> // mem*
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <stdlib.h>
-#include "key.h"
 
 static int retcode = 0;
 static bool donezo = false;
 static bool queued_shutdown = false;
+static int g_sock = -1;
+
+#define SOCK_PATH "/tmp/swm_lock"
 
 void
 stk_terminate(int code)
@@ -43,15 +48,6 @@ stk_event_pump(struct stk_event_t *event)
 {
 	memset(event, 0, sizeof(struct stk_event_t));
 
-	int k;
-	if (key_pressed(&k))
-	{
-		event->type = STK_KEYDOWN;
-		event->key.code = k;
-
-		return 1;
-	}
-
 	if (donezo && queued_shutdown)
 	{
 		event->type = STK_SHUTDOWN;
@@ -71,6 +67,34 @@ stk_init()
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = 0;
 	sigaction(SIGINT, &sa, NULL);
+
+	int s, len;
+	struct sockaddr_un remote;
+
+	if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+		perror("socket");
+		exit(1);
+	}
+
+	printf("trying to connect...\n");
+
+	remote.sun_family = AF_UNIX;
+	strcpy(remote.sun_path, SOCK_PATH);
+	len = strlen(remote.sun_path) + sizeof(remote.sun_family);
+	if (connect(s, (struct sockaddr *)&remote, len) == -1) {
+		perror("connect");
+		exit(1);
+	}
+
+	g_sock = s;
+
+	printf("connected\n");
+}
+
+static void
+disconnect()
+{
+	close(g_sock);
 }
 
 int
@@ -91,7 +115,7 @@ stk_run()
 		usleep(1000);
 	}
 
-	keyboard_reset();
+	disconnect();
 
 	return retcode;
 }
