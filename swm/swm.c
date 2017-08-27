@@ -42,6 +42,8 @@ swm_running()
 static void
 swm_shutdown(struct stk_event_t* event)
 {
+	STK_UNUSED(event);
+
 	puts("Shutting down");
 
 	keyboard_reset();
@@ -103,6 +105,7 @@ swm_event_pump(struct stk_event_t *event)
 void
 swm_push(struct stk_event_t *event)
 {
+	STK_UNUSED(event);
 //	for each client
 //	{
 //		send(event)
@@ -112,6 +115,9 @@ swm_push(struct stk_event_t *event)
 int
 main(int argc, char **argv)
 {
+	STK_UNUSED(argc);
+	STK_UNUSED(argv);
+
 	int err = swm_init();
 	if (err != 0)
 	{

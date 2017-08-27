@@ -1,15 +1,15 @@
 OBJS=stk.o
 LIB=../bin/libstk.a
 
-CFLAGS+=-c -Wall -g -O3 -I../include
-LDFLAGS+=-L/opt/vc/lib/ -lbcm_host -lm
-INCLUDES+=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux
+CFLAGS+=
+LDFLAGS+=-lm
+INCLUDES+=-I../include
 
 all: $(LIB)
 
 %.o: %.c
 	@rm -f $@ 
-	$(CC) $(CFLAGS) $(INCLUDES) -g -c $< -o $@ -Wno-deprecated-declarations
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 $(LIB): $(OBJS)
 	$(AR) rcs $@ $^

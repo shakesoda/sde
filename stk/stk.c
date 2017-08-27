@@ -125,6 +125,7 @@ stk_window_create(unsigned flags)
 {
 	struct stk_window_t *wnd = calloc(1, sizeof(struct stk_window_t));
 
+	STK_UNUSED(flags);
 	// TODO: notify WM process
 
 	return wnd;

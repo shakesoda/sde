@@ -1,3 +1,4 @@
+#include <stk.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -111,6 +112,8 @@ try_accept(fd_set *rfds)
 static void
 client_read(fd_set *rfds, struct swm_client *client)
 {
+	STK_UNUSED(client);
+
 	struct timeval tv;
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;

@@ -1,5 +1,7 @@
 #pragma once
 
+#define STK_UNUSED(x) (void)x
+
 enum stk_event_type_t
 {
 	STK_NONE,

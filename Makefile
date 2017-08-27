@@ -1,12 +1,18 @@
 TARGETS=stk swm
+DEBUGFLAGS=$(CFLAGS) -g -Wall -Wextra -pedantic -Werror
+RELEASEFLAGS=$(CFLAGS) -O3
 
-all: deps
+all: debug
 
-deps:
-	if [ ! -d bin ]; then mkdir bin; fi
-	for target in $(TARGETS); do ($(MAKE) -C $$target); done
+release:
+	@if [ ! -d bin ]; then mkdir bin; fi
+	@for target in $(TARGETS); do (CFLAGS="$(RELEASEFLAGS)" $(MAKE) -C $$target); done
+
+debug:
+	@if [ ! -d bin ]; then mkdir bin; fi
+	@for target in $(TARGETS); do (CFLAGS="$(DEBUGFLAGS)" $(MAKE) -C $$target); done
 
 clean:
-	for target in $(TARGETS); do ($(MAKE) -C $$target clean); done
+	@for target in $(TARGETS); do ($(MAKE) -C $$target clean); done
 
 default: all
