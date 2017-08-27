@@ -3,10 +3,7 @@
 int
 main(int argc, char **argv)
 {
-	STK_UNUSED(argc);
-	STK_UNUSED(argv);
-
-	stk_init();
+	stk_init(argc, argv);
 
 	return stk_run();
 }

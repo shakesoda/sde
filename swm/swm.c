@@ -115,10 +115,7 @@ swm_push(struct stk_event_t *event)
 int
 main(int argc, char **argv)
 {
-	STK_UNUSED(argc);
-	STK_UNUSED(argv);
-
-	int err = swm_init();
+	int err = swm_init(argc, argv);
 	if (err != 0)
 	{
 		return err;

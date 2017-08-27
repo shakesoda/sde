@@ -61,8 +61,11 @@ stk_event_pump(struct stk_event_t *event)
 }
 
 void
-stk_init()
+stk_init(int argc, char **argv)
 {
+	STK_UNUSED(argc);
+	STK_UNUSED(argv);
+
 	struct sigaction sa;
 	sa.sa_handler = sigh;
 	sigemptyset(&sa.sa_mask);

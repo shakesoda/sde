@@ -40,7 +40,7 @@ struct stk_window_t
 };
 
 // prepare stk for use (allocate callback memory, etc)
-void stk_init(void);
+void stk_init(int argc, char **argv);
 
 // terminate with return code
 void stk_terminate(int);
