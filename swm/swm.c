@@ -17,7 +17,7 @@ swm_init()
 	// sanity check: did we fail to get a usable socket?
 	if (host_init() != 0)
 	{
-		puts("unable to host service, already running?");
+		puts("Unable to host service, is it already running?");
 		return -1;
 	}
 
@@ -26,8 +26,7 @@ swm_init()
 	if (g_infos[0].base == NULL)
 	{
 		free(g_infos);
-		g_infos = NULL;
-		puts("can't into kms");
+		puts("Can't initialize DRI/KMS. This is likely a driver or permissions problem.");
 		return -1;
 	}
 
@@ -43,12 +42,10 @@ swm_running()
 static void
 swm_shutdown(struct stk_event_t* event)
 {
+	puts("Shutting down");
+
 	keyboard_reset();
-
-	puts("thing is kill");
 	host_shutdown();
-
-	// dri shutdown
 	swm_dri_shutdown();
 	free(g_infos);
 }
@@ -87,7 +84,7 @@ draw()
 int
 swm_event_pump(struct stk_event_t *event)
 {
-	//host_service();
+	host_service();
 
 	memset(event, 0, sizeof(struct stk_event_t));
 

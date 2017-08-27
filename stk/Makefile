@@ -1,5 +1,5 @@
 OBJS=stk.o
-LIB=../libstk.a
+LIB=../bin/libstk.a
 
 CFLAGS+=-c -Wall -g -O3 -I../include
 LDFLAGS+=-L/opt/vc/lib/ -lbcm_host -lm
