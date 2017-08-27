@@ -6,6 +6,7 @@
 #include <unistd.h> // usleep
 #include <string.h> // mem*
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stdlib.h>
@@ -71,12 +72,20 @@ stk_init()
 	int s, len;
 	struct sockaddr_un remote;
 
-	if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+	if ((s = socket(AF_UNIX, SOCK_SEQPACKET, 0)) == -1) {
 		perror("socket");
 		exit(1);
 	}
 
 	printf("trying to connect...\n");
+
+	struct stat buf;
+	s = stat(SOCK_PATH, &buf);
+	if (s != 0)
+	{
+		fprintf(stderr, "SWM doesn't appear to be running.\n");
+		exit(1);
+	}
 
 	remote.sun_family = AF_UNIX;
 	strcpy(remote.sun_path, SOCK_PATH);

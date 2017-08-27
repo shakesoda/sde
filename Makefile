@@ -1,4 +1,4 @@
-TARGETS=stk swm
+TARGETS=stk swm calc
 DEBUGFLAGS=$(CFLAGS) -g -Wall -Wextra -pedantic -Werror
 RELEASEFLAGS=$(CFLAGS) -O3
 
