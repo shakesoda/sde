@@ -11,10 +11,11 @@
 #define NAME "/tmp/swm_lock"
 
 static int g_sock = -1;
+static int g_donezo = 0;
 static struct fb_info *g_infos = NULL;
 
 static void
-init_host()
+host_init()
 {
 	// force unlink the lock, in case previous run crashed or something...
 	// TODO: exit if lock file exists, that's the point.
@@ -41,14 +42,14 @@ init_host()
 }
 
 static void
-shutdown_host()
+host_shutdown()
 {
 	close(g_sock);
 	unlink(NAME);
 }
 
 static void
-init_dri()
+dri_init()
 {
 	g_infos = swm_dri_init();
 	if (g_infos[0].base == NULL)
@@ -61,16 +62,48 @@ init_dri()
 }
 
 static void
+dri_shutdown()
+{
+	// dri cleanup
+	swm_dri_shutdown();
+	free(g_infos);
+}
+
+static int
+swm_init()
+{
+	host_init();
+
+	// sanity check: did we fail to get a usable socket?
+	if (g_sock < 0)
+	{
+		puts("unable to host service, already running?");
+		return -1;
+	}
+
+	dri_init();
+	if (g_infos == NULL)
+	{
+		return -1;
+	}
+
+	return 0;
+}
+
+static int
+swm_running()
+{
+	return g_donezo? 0 : 1;
+}
+
+static void
 swm_shutdown(struct stk_event_t* event)
 {
 	keyboard_reset();
 
 	puts("thing is kill");
-	shutdown_host();
-
-	// dri cleanup
-	swm_dri_shutdown();
-	free(g_infos);
+	host_shutdown();
+	dri_shutdown();
 }
 
 static void
@@ -78,10 +111,9 @@ swm_input(struct stk_event_t *event)
 {
 	if (event->key.code == 27)
 	{
-		stk_terminate(0);
+		g_donezo = 1;
 	}
 }
-
 
 static void
 draw()
@@ -118,6 +150,8 @@ swm_event_pump(struct stk_event_t *event)
 
 		return 1;
 	}
+
+	return 0;
 }
 
 void
@@ -132,21 +166,10 @@ swm_push(struct stk_event_t *event)
 int
 main(int argc, char **argv)
 {
-	swm_init();
-
-	init_host();
-
-	// sanity check: did we fail to get a usable socket?
-	if (g_sock < 0)
+	int err = swm_init();
+	if (err != 0)
 	{
-		puts("unable to host service, already running?");
-		return -1;
-	}
-
-	init_dri();
-	if (g_infos == NULL)
-	{
-		return -1;
+		return err;
 	}
 
 	struct stk_event_t event;
@@ -172,9 +195,13 @@ main(int argc, char **argv)
 		}
 
 		draw();
+
 		// TODO: figure out how to wait for vblank
 		usleep(1000);
 	}
 
-	return stk_run();
+	// TODO: disconnect clients
+	keyboard_reset();
+
+	return 0;
 }
