@@ -93,7 +93,7 @@ try_accept(fd_set *rfds)
 
 		// add/remove from g_clients
 		struct sockaddr_un client;
-		size_t s = sizeof(client);
+		unsigned s = sizeof(client);
 		int sock = -1;
 		if ((sock = accept(g_sock, (struct sockaddr*)&client, &s)) == -1)
 		{
