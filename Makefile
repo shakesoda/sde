@@ -1,4 +1,4 @@
-OBJS=swm.o dri.o
+OBJS=swm.o dri.o host.o
 BIN=swm
 
 CFLAGS+=-Wall -g -O3 -Iinclude

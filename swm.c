@@ -1,89 +1,33 @@
 #include <stk.h>
-#include <assert.h>
-#include <bcm_host.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <sys/socket.h>
-#include <sys/un.h>
+#include <stdint.h> // uint*_t
+#include <stdio.h> // puts, printf, ...
+#include <stdlib.h> // rand, free, *alloc
+#include <string.h> // memset
+#include <unistd.h> // usleep
+#include "host.h"
 #include "dri.h"
 #include "key.h"
 
-#define NAME "/tmp/swm_lock"
-
-static int g_sock = -1;
 static int g_donezo = 0;
 static struct fb_info *g_infos = NULL;
 
-static void
-host_init()
+static int
+swm_init()
 {
-	// force unlink the lock, in case previous run crashed or something...
-	// TODO: exit if lock file exists, that's the point.
-	unlink(NAME);
-
-	g_sock = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (g_sock < 0)
+	// sanity check: did we fail to get a usable socket?
+	if (host_init() != 0)
 	{
-		puts("oh no");
-		return;
+		puts("unable to host service, already running?");
+		return -1;
 	}
 
-	struct sockaddr_un server;
-	server.sun_family = AF_UNIX;
-	strcpy(server.sun_path, NAME);
-	if (bind(g_sock, (struct sockaddr*)&server, sizeof(struct sockaddr_un))) {
-		puts("ded");
-		return;
-	}
-
-	listen(g_sock, 5);
-
-	puts("it worked");
-}
-
-static void
-host_shutdown()
-{
-	close(g_sock);
-	unlink(NAME);
-}
-
-static void
-dri_init()
-{
+	// dri init
 	g_infos = swm_dri_init();
 	if (g_infos[0].base == NULL)
 	{
 		free(g_infos);
 		g_infos = NULL;
 		puts("can't into kms");
-		return;
-	}
-}
-
-static void
-dri_shutdown()
-{
-	// dri cleanup
-	swm_dri_shutdown();
-	free(g_infos);
-}
-
-static int
-swm_init()
-{
-	host_init();
-
-	// sanity check: did we fail to get a usable socket?
-	if (g_sock < 0)
-	{
-		puts("unable to host service, already running?");
-		return -1;
-	}
-
-	dri_init();
-	if (g_infos == NULL)
-	{
 		return -1;
 	}
 
@@ -103,7 +47,10 @@ swm_shutdown(struct stk_event_t* event)
 
 	puts("thing is kill");
 	host_shutdown();
-	dri_shutdown();
+
+	// dri shutdown
+	swm_dri_shutdown();
+	free(g_infos);
 }
 
 static void
@@ -140,6 +87,8 @@ draw()
 int
 swm_event_pump(struct stk_event_t *event)
 {
+	//host_service();
+
 	memset(event, 0, sizeof(struct stk_event_t));
 
 	int k;
@@ -188,6 +137,7 @@ main(int argc, char **argv)
 			default:
 				break;
 			}
+			// we could push events next frame, but adding latency is bad.
 			if (event.type != 0)
 			{
 				swm_push(&event);
