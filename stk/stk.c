@@ -1,22 +1,24 @@
+
 #include <stk.h>
 #include <assert.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h> // usleep
 #include <string.h> // mem*
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <stdlib.h>
+//#include <sys/types.h>
+#include <sys/msg.h>
+#include <sys/ipc.h>
+
+#define KEY_NAME "/tmp/swm_lock"
+
+static int g_sendq = -1;
+static int g_recvq = -1;
 
 static int retcode = 0;
 static bool donezo = false;
 static bool queued_shutdown = false;
-static int g_sock = -1;
-
-#define SOCK_PATH "/tmp/swm_lock"
 
 void
 stk_terminate(int code)
@@ -72,33 +74,21 @@ stk_init(int argc, char **argv)
 	sa.sa_flags = 0;
 	sigaction(SIGINT, &sa, NULL);
 
-	int s, len;
-	struct sockaddr_un remote;
+	key_t send_key = ftok(KEY_NAME, 's');
+	key_t recv_key = ftok(KEY_NAME, 'r');
 
-	if ((s = socket(AF_UNIX, SOCK_SEQPACKET, 0)) == -1) {
-		perror("socket");
-		exit(1);
-	}
+	g_sendq = msgget(send_key, 0644);
+	g_recvq = msgget(recv_key, 0644);
 
-	printf("trying to connect...\n");
+	struct stk_msg buf;
+	buf.type = 1; // hello
 
-	struct stat buf;
-	s = stat(SOCK_PATH, &buf);
-	if (s != 0)
+	if (msgsnd(g_sendq, &buf, sizeof(struct stk_msg), IPC_NOWAIT) == -1)
 	{
-		fprintf(stderr, "SWM doesn't appear to be running.\n");
+		puts("unable to connect to server");
 		exit(1);
+		return;
 	}
-
-	remote.sun_family = AF_UNIX;
-	strcpy(remote.sun_path, SOCK_PATH);
-	len = strlen(remote.sun_path) + sizeof(remote.sun_family);
-	if (connect(s, (struct sockaddr *)&remote, len) == -1) {
-		perror("connect");
-		exit(1);
-	}
-
-	g_sock = s;
 
 	printf("connected\n");
 }
@@ -106,7 +96,10 @@ stk_init(int argc, char **argv)
 static void
 disconnect()
 {
-	close(g_sock);
+	struct stk_msg buf;
+	buf.type = 2; // goodbye
+	msgsnd(g_sendq, &buf, sizeof(struct stk_msg), IPC_NOWAIT);
+	// send dc to queue...
 }
 
 int

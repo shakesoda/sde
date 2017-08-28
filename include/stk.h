@@ -19,6 +19,12 @@ enum stk_window_flags_t
 	STK_WF_INVALID = 1 << 3
 };
 
+// WM message (internal)
+struct stk_msg
+{
+	int type;
+};
+
 // basic generic SDL-style event
 struct stk_event_t
 {

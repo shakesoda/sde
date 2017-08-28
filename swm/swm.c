@@ -4,12 +4,28 @@
 #include <stdlib.h> // rand, free, *alloc
 #include <string.h> // memset
 #include <unistd.h> // usleep
+#include <signal.h>
 #include "host.h"
 #include "dri.h"
 #include "key.h"
 
+static int g_no_dri = 0;
 static int g_donezo = 0;
 static struct fb_info *g_infos = NULL;
+
+static void
+sigh(int signo)
+{
+	switch (signo)
+	{
+	case SIGKILL:
+	case SIGTERM:
+	case SIGINT:
+		g_donezo = 1;
+		break;
+	default: break;
+	}
+}
 
 static int
 swm_init()
@@ -19,6 +35,17 @@ swm_init()
 	{
 		puts("Unable to host service, is it already running?");
 		return -1;
+	}
+
+	struct sigaction sa;
+	sa.sa_handler = sigh;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+	sigaction(SIGINT, &sa, NULL);
+
+	if (g_no_dri)
+	{
+		return 0;
 	}
 
 	// dri init
@@ -40,16 +67,18 @@ swm_running()
 }
 
 static void
-swm_shutdown(struct stk_event_t* event)
+swm_shutdown()
 {
-	STK_UNUSED(event);
-
 	puts("Shutting down");
 
-	keyboard_reset();
 	host_shutdown();
-	swm_dri_shutdown();
-	free(g_infos);
+	keyboard_reset();
+
+	if (!g_no_dri)
+	{
+		swm_dri_shutdown();
+		free(g_infos);
+	}
 }
 
 static void
@@ -64,6 +93,11 @@ swm_input(struct stk_event_t *event)
 static void
 draw()
 {
+	if (g_no_dri)
+	{
+		return;
+	}
+
 	int x,y;
 	struct fb_info *current = g_infos;
 	while (current->base != NULL)
@@ -115,7 +149,17 @@ swm_push(struct stk_event_t *event)
 int
 main(int argc, char **argv)
 {
-	int err = swm_init(argc, argv);
+	for (int i = 0; i < argc; i++)
+	{
+		const char *arg = argv[i];
+		if (strcmp(arg, "--headless") == 0)
+		{
+			g_no_dri = 1;
+			continue;
+		}
+	}
+
+	int err = swm_init();
 	if (err != 0)
 	{
 		return err;
@@ -130,9 +174,6 @@ main(int argc, char **argv)
 			{
 			case STK_KEYDOWN:
 				swm_input(&event);
-				break;
-			case STK_SHUTDOWN:
-				swm_shutdown(NULL);
 				break;
 			default:
 				break;
@@ -150,8 +191,7 @@ main(int argc, char **argv)
 		usleep(1000);
 	}
 
-	// TODO: disconnect clients
-	keyboard_reset();
+	swm_shutdown();
 
 	return 0;
 }
