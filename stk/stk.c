@@ -14,7 +14,7 @@
 #define MSG_COPY 040000 /* copy (not remove) all queue messages */
 #define KEY_NAME "/tmp/swm_lock"
 
-static int g_pid = -1;
+static long g_pid = -1;
 static int g_sendq = -1;
 static int g_recvq = -1;
 
@@ -35,7 +35,7 @@ message_new(enum stk_wm_msg_t type, int wid)
 static void
 message_send(struct stk_msg *buf)
 {
-	if (msgsnd(g_sendq, buf, sizeof(struct stk_msg), IPC_NOWAIT) == -1)
+	if (msgsnd(g_sendq, buf, sizeof(struct stk_msg)-sizeof(long), IPC_NOWAIT) == -1)
 	{
 		puts("Unable to connect to display server.");
 		exit(1); // should this be non-fatal?
@@ -45,17 +45,12 @@ message_send(struct stk_msg *buf)
 
 // pass -1 to ignore window id
 static int
-message_find(struct stk_msg *buf, int wid)
+message_find(struct stk_msg *buf)
 {
 	// with multiple messages in the queue for other processes this will be awful...
-	if (msgrcv(g_recvq, buf, sizeof(struct stk_msg), 0, IPC_NOWAIT) >= 0)
+	if (msgrcv(g_recvq, buf, sizeof(struct stk_msg)-sizeof(long), g_pid, IPC_NOWAIT) >= 0)
 	{
-		if (buf->pid == g_pid && (wid < 0 || buf->wid == wid))
-		{
-			return 1;
-		}
-		// no match, put it back
-		msgsnd(g_recvq, buf, sizeof(struct stk_msg), IPC_NOWAIT);
+		return 1;
 	}
 
 	return 0;
@@ -93,7 +88,7 @@ stk_event_pump(struct stk_event_t *event)
 	memset(event, 0, sizeof(struct stk_event_t));
 
 	struct stk_msg buf = message_new(STK_WM_INVALID, 0);
-	if (message_find(&buf, -1))
+	if (message_find(&buf))
 	{
 		// closed by WM
 		if (buf.type == STK_WM_PROC_DESPAWN)

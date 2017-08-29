@@ -35,7 +35,7 @@ host_init()
 static void
 message_send(struct stk_msg *buf)
 {
-	if (msgsnd(g_sendq, buf, sizeof(struct stk_msg), IPC_NOWAIT) == -1)
+	if (msgsnd(g_sendq, buf, sizeof(struct stk_msg)-sizeof(long), IPC_NOWAIT) == -1)
 	{
 		puts("ow");
 		return;
@@ -54,9 +54,9 @@ host_service()
 {
 	struct stk_msg buf = { 0 };
 	int rd;
-	while ((rd = msgrcv(g_recvq, &buf, sizeof(struct stk_msg), 0, IPC_NOWAIT)) >= 0)
+	while ((rd = msgrcv(g_recvq, &buf, sizeof(struct stk_msg)-sizeof(long), 0, IPC_NOWAIT)) >= 0)
 	{
-		printf("message from %d (%d):\n", buf.pid, buf.wid);
+		printf("message from %ld (%d):\n", buf.pid, buf.wid);
 		printf("\ttype %d\n", buf.type);
 
 		if (buf.type != STK_WM_PROC_DESPAWN)

@@ -31,8 +31,8 @@ enum stk_wm_msg_t
 // WM message (internal)
 struct stk_msg
 {
+	long pid; // IMPORTANT: THIS MUST BE FIRST
 	enum stk_wm_msg_t type;
-	int pid;
 	int wid;
 	union
 	{
