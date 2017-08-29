@@ -19,10 +19,34 @@ enum stk_window_flags_t
 	STK_WF_INVALID = 1 << 3
 };
 
+enum stk_wm_msg_t
+{
+	STK_WM_INVALID,
+	STK_WM_PROC_SPAWN,
+	STK_WM_PROC_DESPAWN,
+	STK_WM_OPEN,
+	STK_WM_CLOSE
+};
+
 // WM message (internal)
 struct stk_msg
 {
-	int type;
+	enum stk_wm_msg_t type;
+	int pid;
+	int wid;
+	union
+	{
+		struct
+		{
+			int x;
+			int y;
+		} move;
+		struct
+		{
+			int w;
+			int h;
+		} resize;
+	};
 };
 
 // basic generic SDL-style event

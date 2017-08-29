@@ -19,7 +19,6 @@ host_init()
 	g_sendq = msgget(send_key, 0644 | IPC_CREAT);
 	g_recvq = msgget(recv_key, 0644 | IPC_CREAT);
 
-
 	return 0;
 }
 

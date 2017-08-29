@@ -7,18 +7,59 @@
 #include <stdlib.h>
 #include <unistd.h> // usleep
 #include <string.h> // mem*
-//#include <sys/types.h>
 #include <sys/msg.h>
 #include <sys/ipc.h>
 
+// from <linux/msg.h>
+#define MSG_COPY 040000 /* copy (not remove) all queue messages */
 #define KEY_NAME "/tmp/swm_lock"
 
+static int g_pid = -1;
 static int g_sendq = -1;
 static int g_recvq = -1;
 
 static int retcode = 0;
 static bool donezo = false;
 static bool queued_shutdown = false;
+
+static struct stk_msg
+message_new(enum stk_wm_msg_t type, int wid)
+{
+	struct stk_msg msg = { 0 };
+	msg.type = type;
+	msg.pid = g_pid;
+	msg.wid = wid;
+	return msg;
+}
+
+static void
+message_send(struct stk_msg *buf)
+{
+	if (msgsnd(g_sendq, buf, sizeof(struct stk_msg), IPC_NOWAIT) == -1)
+	{
+		puts("Unable to connect to display server.");
+		exit(1); // should this be non-fatal?
+		return;
+	}
+}
+
+// pass -1 to ignore window id
+static int
+message_find(struct stk_msg *buf, int wid)
+{
+	int rd;
+	int i = 0;
+	while ((rd = msgrcv(g_recvq, buf, sizeof(struct stk_msg), i++, IPC_NOWAIT | MSG_COPY)) >= 0)
+	{
+		if (buf->pid == g_pid && (wid < 0 || buf->wid == wid))
+		{
+			msgrcv(g_recvq, buf, sizeof(struct stk_msg), i-1, IPC_NOWAIT);
+			return 1;
+		}
+	}
+
+	return 0;
+}
 
 void
 stk_terminate(int code)
@@ -51,6 +92,17 @@ stk_event_pump(struct stk_event_t *event)
 {
 	memset(event, 0, sizeof(struct stk_event_t));
 
+	struct stk_msg buf;
+	if (message_find(&buf, -1))
+	{
+		// closed by WM
+		if (buf.type == STK_WM_PROC_DESPAWN)
+		{
+			stk_terminate(0);
+			return 1;
+		}
+	}
+
 	if (donezo && queued_shutdown)
 	{
 		event->type = STK_SHUTDOWN;
@@ -68,6 +120,8 @@ stk_init(int argc, char **argv)
 	STK_UNUSED(argc);
 	STK_UNUSED(argv);
 
+	g_pid = getpid();
+
 	struct sigaction sa;
 	sa.sa_handler = sigh;
 	sigemptyset(&sa.sa_mask);
@@ -80,26 +134,15 @@ stk_init(int argc, char **argv)
 	g_sendq = msgget(send_key, 0644);
 	g_recvq = msgget(recv_key, 0644);
 
-	struct stk_msg buf;
-	buf.type = 1; // hello
-
-	if (msgsnd(g_sendq, &buf, sizeof(struct stk_msg), IPC_NOWAIT) == -1)
-	{
-		puts("unable to connect to server");
-		exit(1);
-		return;
-	}
-
-	printf("connected\n");
+	struct stk_msg buf = message_new(STK_WM_PROC_SPAWN, 0);
+	message_send(&buf);
 }
 
 static void
 disconnect()
 {
-	struct stk_msg buf;
-	buf.type = 2; // goodbye
-	msgsnd(g_sendq, &buf, sizeof(struct stk_msg), IPC_NOWAIT);
-	// send dc to queue...
+	struct stk_msg buf = message_new(STK_WM_PROC_DESPAWN, 0);
+	message_send(&buf);
 }
 
 int
