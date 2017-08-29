@@ -47,15 +47,15 @@ message_send(struct stk_msg *buf)
 static int
 message_find(struct stk_msg *buf, int wid)
 {
-	int rd;
-	int i = 0;
-	while ((rd = msgrcv(g_recvq, buf, sizeof(struct stk_msg), i++, IPC_NOWAIT | MSG_COPY)) >= 0)
+	// with multiple messages in the queue for other processes this will be awful...
+	if (msgrcv(g_recvq, buf, sizeof(struct stk_msg), 0, IPC_NOWAIT) >= 0)
 	{
 		if (buf->pid == g_pid && (wid < 0 || buf->wid == wid))
 		{
-			msgrcv(g_recvq, buf, sizeof(struct stk_msg), i-1, IPC_NOWAIT);
 			return 1;
 		}
+		// no match, put it back
+		msgsnd(g_recvq, buf, sizeof(struct stk_msg), IPC_NOWAIT);
 	}
 
 	return 0;
@@ -92,12 +92,13 @@ stk_event_pump(struct stk_event_t *event)
 {
 	memset(event, 0, sizeof(struct stk_event_t));
 
-	struct stk_msg buf;
+	struct stk_msg buf = message_new(STK_WM_INVALID, 0);
 	if (message_find(&buf, -1))
 	{
 		// closed by WM
 		if (buf.type == STK_WM_PROC_DESPAWN)
 		{
+			puts("this would be a good time to close");
 			stk_terminate(0);
 			return 1;
 		}
@@ -168,13 +169,17 @@ stk_run()
 	return retcode;
 }
 
+static int g_wid = 0;
+
 struct stk_window_t*
 stk_window_create(unsigned flags)
 {
 	struct stk_window_t *wnd = calloc(1, sizeof(struct stk_window_t));
+	wnd->flags = flags;
+	wnd->id = g_wid++;
 
-	STK_UNUSED(flags);
-	// TODO: notify WM process
+	struct stk_msg buf = message_new(STK_WM_OPEN, wnd->id);
+	message_send(&buf);
 
 	return wnd;
 }
@@ -182,7 +187,8 @@ stk_window_create(unsigned flags)
 void
 stk_window_destroy(struct stk_window_t *wnd)
 {
-	// TODO: notify WM process
+	struct stk_msg buf = message_new(STK_WM_CLOSE, wnd->id);
+	message_send(&buf);
 
 	free(wnd);
 }

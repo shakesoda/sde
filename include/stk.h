@@ -64,6 +64,7 @@ struct stk_event_t
 
 struct stk_window_t
 {
+	int id;
 	unsigned width;
 	unsigned height;
 	unsigned flags;

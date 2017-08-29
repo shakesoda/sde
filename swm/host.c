@@ -9,6 +9,16 @@
 static int g_sendq = -1;
 static int g_recvq = -1;
 
+static struct stk_msg
+message_new(enum stk_wm_msg_t type, int pid, int wid)
+{
+	struct stk_msg msg = { 0 };
+	msg.type = type;
+	msg.pid = pid;
+	msg.wid = wid;
+	return msg;
+}
+
 int
 host_init()
 {
@@ -20,6 +30,16 @@ host_init()
 	g_recvq = msgget(recv_key, 0644 | IPC_CREAT);
 
 	return 0;
+}
+
+static void
+message_send(struct stk_msg *buf)
+{
+	if (msgsnd(g_sendq, buf, sizeof(struct stk_msg), IPC_NOWAIT) == -1)
+	{
+		puts("ow");
+		return;
+	}
 }
 
 void
@@ -36,6 +56,13 @@ host_service()
 	int rd;
 	while ((rd = msgrcv(g_recvq, &buf, sizeof(struct stk_msg), 0, IPC_NOWAIT)) >= 0)
 	{
-		printf("type %d\n", buf.type);
+		printf("message from %d (%d):\n", buf.pid, buf.wid);
+		printf("\ttype %d\n", buf.type);
+
+		if (buf.type != STK_WM_PROC_DESPAWN)
+		{
+			struct stk_msg kill = message_new(STK_WM_PROC_DESPAWN, buf.pid, 0);
+			message_send(&kill);
+		}
 	}
 }
