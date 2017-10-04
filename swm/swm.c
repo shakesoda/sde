@@ -8,6 +8,7 @@
 #include "host.h"
 #include "dri.h"
 #include "key.h"
+#include "mouse.h"
 
 static int g_no_dri = 0;
 static int g_donezo = 0;
@@ -43,6 +44,8 @@ swm_init()
 	sa.sa_flags = 0;
 	sigaction(SIGINT, &sa, NULL);
 
+	mouse_init();
+
 	if (g_no_dri)
 	{
 		return 0;
@@ -73,6 +76,7 @@ swm_shutdown()
 
 	host_shutdown();
 	keyboard_reset();
+	mouse_shutdown();
 
 	if (!g_no_dri)
 	{
@@ -132,6 +136,8 @@ swm_event_pump(struct stk_event_t *event)
 
 		return 1;
 	}
+
+	mouse_poll();
 
 	return 0;
 }
